@@ -15,14 +15,22 @@ if ($conn->connect_error) {
     die("Connection failed: " . $conn->connect_error);
 }
 
-// Fetch user activity report
+// Set timezone to Asia/Kolkata for consistency
+date_default_timezone_set('Asia/Kolkata');
+
+// Fetch user activity report (order by recent activity)
 $stmt = $conn->prepare("SELECT email, action, timestamp FROM user_activity ORDER BY timestamp DESC");
 $stmt->execute();
 $result = $stmt->get_result();
 
-// Fetch count of users logged in today
+// Fetch count of distinct users logged in today
 $today = date('Y-m-d'); // Get current date in Y-m-d format
-$countStmt = $conn->prepare("SELECT COUNT(DISTINCT email) AS user_count FROM user_activity WHERE DATE(timestamp) = ?");
+$countStmt = $conn->prepare("
+    SELECT COUNT(DISTINCT email) AS user_count 
+    FROM user_activity 
+    WHERE action = 'login_success' 
+    AND DATE(CONVERT_TZ(timestamp, '+00:00', '+05:30')) = ?
+");
 $countStmt->bind_param("s", $today);
 $countStmt->execute();
 $countResult = $countStmt->get_result();
@@ -105,7 +113,7 @@ $userCount = $countRow['user_count'];
                         <tr>
                             <td><?php echo htmlspecialchars($row['email']); ?></td>
                             <td><?php echo htmlspecialchars($row['action']); ?></td>
-                            <td><?php echo htmlspecialchars($row['timestamp']); ?></td>
+                            <td><?php echo date('Y-m-d H:i:s', strtotime($row['timestamp'])); ?></td> <!-- Format timestamp -->
                         </tr>
                     <?php endwhile; ?>
                 </tbody>
@@ -127,5 +135,7 @@ $userCount = $countRow['user_count'];
 </html>
 
 <?php
+$stmt->close();
+$countStmt->close();
 $conn->close(); // Close the database connection
 ?>

@@ -24,10 +24,27 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
         // Check if password matches
         if (password_verify($password, $user['password'])) {
-            $_SESSION['email'] = $user['email']; // Set the session for the logged-in user
-            header("Location: dashboard.php"); // Redirect to dashboard on successful login
+            // Set the session for the logged-in user
+            $_SESSION['email'] = $user['email'];
+
+            // Insert login event into user_activity table
+            $action = 'login_success';
+            $timestamp = date('Y-m-d H:i:s'); // Current date and time
+
+            // Prepare the SQL statement to log user activity
+            $activityStmt = $conn->prepare("INSERT INTO user_activity (email, action, timestamp) VALUES (?, ?, ?)");
+            $activityStmt->bind_param("sss", $email, $action, $timestamp);
+
+            if ($activityStmt->execute()) {
+                header("Location: dashboard.php"); // Redirect to dashboard on successful login
+                exit();
+            } else {
+                // Log error message if there was an issue inserting the login event
+                die("Error logging user activity: " . $activityStmt->error);
+            }
+
         } else {
-            // Style the incorrect password message and add a "Go back" button
+            // Incorrect password message
             echo "
             <html lang='en'>
             <head>
