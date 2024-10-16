@@ -84,6 +84,9 @@ if (!isset($_SESSION['email'])) {
             <a href="user_activity_chart.php">
                 <button class="option-btn">View User Activity Chart</button>
             </a>
+            <a href="login_by_date.php">
+                <button class="option-btn">View Logins by Date</button>
+            </a>
             <a href="logout.php">
                 <button class="option-btn">Logout</button>
             </a>

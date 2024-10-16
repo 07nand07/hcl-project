@@ -1,6 +1,9 @@
 <?php
 session_start(); // Start session to track logged-in users
 
+// Set the timezone to India (Kolkata)
+date_default_timezone_set('Asia/Kolkata');
+
 // Check if the user is logged in
 if (!isset($_SESSION['email'])) {
     header("Location: snippet.html"); // Redirect to login page if not logged in
@@ -25,24 +28,16 @@ $stmt = $conn->prepare("
 $stmt->execute();
 $result = $stmt->get_result();
 
-// Debugging output
-if (!$result) {
-    die("Query failed: " . $conn->error);
-}
-
 // Function to count new users registered today
 function countNewUsersToday($conn) {
-    // Get today's date
     $today = date('Y-m-d'); // Format: YYYY-MM-DD
 
-    // Prepare the SQL statement
     $query = "SELECT COUNT(*) AS new_users_count FROM users WHERE DATE(registration_date) = ?";
     $stmt = $conn->prepare($query);
     $stmt->bind_param("s", $today);
     $stmt->execute();
     $result = $stmt->get_result();
 
-    // Fetch the count
     if ($row = $result->fetch_assoc()) {
         return $row['new_users_count'];
     }
@@ -65,7 +60,8 @@ $newUsersCount = countNewUsersToday($conn);
     <style>
         body {
             font-family: 'Poppins', sans-serif;
-            background-color: #f0f4f8; /* Light background color */
+            background: url('bg.png'); 
+            background-color: #f0f4f8;
         }
         .container {
             margin-top: 30px;
@@ -73,47 +69,55 @@ $newUsersCount = countNewUsersToday($conn);
             padding: 20px;
             background: white;
             border-radius: 10px;
-            box-shadow: 0 2px 15px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 2px 15px rgba(0, 0, 0, 0.2);
         }
+
         h2 {
-            margin-bottom: 20px;
-            color: #00796b; /* Teal color for title */
-            text-align: center; /* Center align the title */
+            margin-bottom: 10px;
+            color: #00796b; 
+            text-align: center;
         }
+
         .new-users-count {
-            font-size: 18px; /* Font size for new users count display */
-            color: #FF5722; /* Color for the count */
-            margin-bottom: 20px; /* Space below the count */
-            text-align: center; /* Center align the new users count */
+            font-size: 18px;
+            color: #FF5722;
+            margin-bottom: 10px;
+            text-align: center;
         }
+
         table {
             margin-top: 20px;
             width: 100%;
         }
+
         th, td {
-            text-align: center; /* Center align both headers and data */
+            text-align: center;
             vertical-align: middle;
         }
+
         th {
-            background-color: #00796b; /* Teal header background color */
-            color: black; /* Header text color */
+            background-color: #00796b; 
+            color: black;
         }
+
         td {
             text-align: center;
             vertical-align: middle;
         }
+
         .back-btn {
-            margin-top: 20px;
-            background-color: #009688; /* Teal background for button */
-            color: white; /* White text */
+            margin-top: 7px;
+            background-color: #009688;
+            color: white;
             padding: 10px 20px;
             border: none;
             border-radius: 5px;
             cursor: pointer;
             transition: background-color 0.3s;
         }
+
         .back-btn:hover {
-            background-color: #00796b; /* Darker teal on hover */
+            background-color: #00796b; 
         }
     </style>
 </head>
@@ -124,6 +128,11 @@ $newUsersCount = countNewUsersToday($conn);
         <!-- Display the count of new users registered today -->
         <div class="new-users-count">
             New users registered today: <strong><?php echo $newUsersCount; ?></strong>
+        </div>
+        <div class="text-center">
+            <a href="dashboard.php">
+                <button class="back-btn">Back to Dashboard</button>
+            </a>
         </div>
 
         <?php if ($result->num_rows > 0): ?>
@@ -140,7 +149,17 @@ $newUsersCount = countNewUsersToday($conn);
                         <tr>
                             <td><?php echo htmlspecialchars($row['email']); ?></td>
                             <td><?php echo $row['login_count']; ?></td>
-                            <td><?php echo $row['last_login'] ? date('Y-m-d H:i:s', strtotime($row['last_login'])) : 'Never'; ?></td> <!-- Format the last login timestamp -->
+                            <td>
+                                <?php
+                                if ($row['last_login']) {
+                                    $datetime = new DateTime($row['last_login'], new DateTimeZone('UTC')); // Assuming the stored time is in UTC
+                                    $datetime->setTimezone(new DateTimeZone('Asia/Kolkata')); // Convert to Asia/Kolkata timezone
+                                    echo $datetime->format('Y-m-d H:i:s'); // Format the output
+                                } else {
+                                    echo 'Never';
+                                }
+                                ?>
+                            </td>
                         </tr>
                     <?php endwhile; ?>
                 </tbody>
@@ -149,12 +168,6 @@ $newUsersCount = countNewUsersToday($conn);
             <p class="text-muted">No login records found.</p>
         <?php endif; ?>
 
-        <!-- Back Button -->
-        <div class="text-center">
-            <a href="dashboard.php">
-                <button class="back-btn">Back to Dashboard</button>
-            </a>
-        </div>
     </div>
 
     <script type='text/javascript' src='https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/js/bootstrap.bundle.min.js'></script>

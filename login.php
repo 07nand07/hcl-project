@@ -29,7 +29,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
             // Insert login event into user_activity table
             $action = 'login_success';
-            $timestamp = date('Y-m-d H:i:s'); // Current date and time
+            $timestamp = gmdate('Y-m-d H:i:s'); // Get current date and time in UTC
 
             // Prepare the SQL statement to log user activity
             $activityStmt = $conn->prepare("INSERT INTO user_activity (email, action, timestamp) VALUES (?, ?, ?)");
@@ -97,4 +97,23 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         }
     }
 }
+
+// Display login times if the user is logged in
+if (isset($_SESSION['email'])) {
+    $query = "SELECT email, timestamp FROM user_activity WHERE action = 'login_success' ORDER BY timestamp DESC";
+    $stmt = $conn->prepare($query);
+    $stmt->execute();
+    $result = $stmt->get_result();
+
+    echo "<h4>Login Activity:</h4>";
+    while ($login = $result->fetch_assoc()) {
+        // Convert the timestamp to Asia/Kolkata timezone
+        $dateTime = new DateTime($login['timestamp'], new DateTimeZone('UTC')); // Assume stored in UTC
+        $dateTime->setTimezone(new DateTimeZone('Asia/Kolkata')); // Convert to Asia/Kolkata timezone
+        $formattedTime = $dateTime->format('Y-m-d H:i:s'); // Format as desired
+
+        echo "Email: " . htmlspecialchars($login['email']) . " - Login Time: " . htmlspecialchars($formattedTime) . "<br>";
+    }
+}
+
 ?>
