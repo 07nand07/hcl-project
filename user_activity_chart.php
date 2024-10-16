@@ -37,6 +37,24 @@ $counts = array_reverse(array_map(function ($date) use ($activityData) {
     return $activityData[$date] ?? 0;
 }, $dates));
 
+// Fetch new user registration count for each day over the last 7 days
+$newUserCounts = [];
+for ($i = 0; $i < 7; $i++) {
+    $date = date('Y-m-d', strtotime("-$i days"));
+    // Prepare statement to count new registrations for that date
+    $stmt = $conn->prepare("SELECT COUNT(*) AS new_user_count FROM users WHERE DATE(registration_date) = ?");
+    $stmt->bind_param("s", $date);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $row = $result->fetch_assoc();
+    $newUserCounts[$date] = $row['new_user_count'];
+}
+
+// Prepare data for line chart
+$newUserCounts = array_reverse(array_map(function ($date) use ($newUserCounts) {
+    return $newUserCounts[$date] ?? 0;
+}, $dates));
+
 // Fetch login count for each user over the last 7 days
 $userActivityCounts = [];
 $stmt = $conn->prepare("SELECT email, COUNT(*) AS login_count FROM user_activity WHERE DATE(timestamp) >= DATE_SUB(CURDATE(), INTERVAL 7 DAY) GROUP BY email");
@@ -75,6 +93,8 @@ $pieColors = array_slice($colors, 0, count($userLabels));
     <title>User Activity Charts</title>
     <link href='https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/css/bootstrap.min.css' rel='stylesheet'>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Add Chart.js DataLabels plugin -->
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
     <style>
         body {
             font-family: 'Poppins', sans-serif;
@@ -102,7 +122,7 @@ $pieColors = array_slice($colors, 0, count($userLabels));
         .chart {
             width: 50%; /* Set width to 50% for each chart */
             height: 60vh; /* Set height for the charts */
-            max-width: 500px; /* Max width for larger screens */
+            max-width: 300px; /* Max width for larger screens */
             margin: 10px; /* Margin around each chart */
         }
         .back-btn {
@@ -132,6 +152,9 @@ $pieColors = array_slice($colors, 0, count($userLabels));
         <div class="charts-container">
             <div class="chart">
                 <canvas id="userActivityChart"></canvas>
+            </div>
+            <div class="chart">
+                <canvas id="newUserRegistrationChart"></canvas>
             </div>
             <div class="chart">
                 <canvas id="userActivityPieChart"></canvas>
@@ -175,28 +198,88 @@ $pieColors = array_slice($colors, 0, count($userLabels));
             }
         });
 
+        const ctxLine = document.getElementById('newUserRegistrationChart').getContext('2d');
+        const newUserRegistrationChart = new Chart(ctxLine, {
+            type: 'line',
+            data: {
+                labels: <?php echo json_encode($labels); ?>,
+                datasets: [{
+                    label: 'New Users Registered',
+                    data: <?php echo json_encode($newUserCounts); ?>,
+                    backgroundColor: 'rgba(75, 192, 192, 0.2)', // Light teal color for the line graph
+                    borderColor: 'rgba(75, 192, 192, 1)', // Darker teal color for the line
+                    borderWidth: 2,
+                    fill: true // Fill the area under the line
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'Number of New Users'
+                        }
+                    },
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Date'
+                        }
+                    }
+                }
+            }
+        });
+
         const ctxPie = document.getElementById('userActivityPieChart').getContext('2d');
         const userActivityPieChart = new Chart(ctxPie, {
             type: 'pie',
             data: {
                 labels: <?php echo json_encode($userLabels); ?>,
                 datasets: [{
-                    label: 'User Login Distribution',
+                    label: 'User Logins',
                     data: <?php echo json_encode($userCounts); ?>,
                     backgroundColor: <?php echo json_encode($pieColors); ?>,
-                    borderColor: 'rgba(0, 0, 0, 0.5)',
-                    borderWidth: 1
+                    borderColor: 'rgba(255, 255, 255, 1)', // White border for the pie chart slices
+                    borderWidth: 2
                 }]
             },
             options: {
                 responsive: true,
-                maintainAspectRatio: false
-            }
+                maintainAspectRatio: false,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'User Login Distribution Over the Last 7 Days', // Add the heading here
+                        font: {
+                            size: 15,
+                            weight: 'bold'
+                        },
+                        padding: {
+                            top: 10,
+                            bottom: 20
+                        }
+                    },
+                    legend: {
+                        display: false // Disable the legend
+                    },
+                    datalabels: {
+                        color: '#fff', // Label color
+                        formatter: (value, ctx) => {
+                            let percentage = ((value / ctx.chart._metasets[0].total) * 100).toFixed(2) + '%'; // Show percentage
+                            return percentage;
+                        },
+                        font: {
+                            weight: 'bold',
+                            size: 0
+                        }
+                    }
+                }
+            },
+            plugins: [ChartDataLabels]
         });
     </script>
 </body>
 </html>
-
-<?php
-$conn->close(); // Close the database connection
-?>
